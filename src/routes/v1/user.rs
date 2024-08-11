@@ -23,7 +23,7 @@ struct UserQuery {
     username: Option<String>,
 }
 
-#[get("/user")]
+#[get("")]
 async fn get_user(req: HttpRequest, data: Data<DbPool>) -> Result<HttpResponse, ErrorResponse> {
     use crate::schema::users::dsl::*;
 
@@ -100,7 +100,7 @@ struct RegisterUser {
     password: String,
 }
 
-#[post("/user")]
+#[post("")]
 async fn register(
     params: web::Form<RegisterUser>,
     data: Data<DbPool>,
@@ -188,7 +188,7 @@ struct UserUpdate {
     username: Option<String>,
     password: Option<String>,
 }
-#[post("/user/update")]
+#[post("/update")]
 async fn update_user(
     MultipartForm(form): MultipartForm<UserForm>,
     data: Data<DbPool>,
@@ -233,9 +233,11 @@ async fn update_user(
 }
 
 pub fn init(config: &mut ServiceConfig) {
-    config
-        .service(get_user)
-        .service(add_dummy_user)
-        .service(register)
-        .service(update_user);
+    config.service(
+        web::scope("/user")
+            .service(get_user)
+            .service(add_dummy_user)
+            .service(register)
+            .service(update_user),
+    );
 }
