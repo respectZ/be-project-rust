@@ -1,5 +1,10 @@
-use crate::{db::DbPool, models::User, response::ErrorResponse, schema::users};
-use actix_multipart::form::{tempfile::TempFile, text::Text, MultipartForm};
+use crate::{
+    db::DbPool,
+    models::User,
+    response::{ErrorResponse, OkResponse},
+    schema::users,
+};
+use actix_multipart::form::{text::Text, MultipartForm};
 use actix_web::{
     get,
     http::StatusCode,
@@ -10,7 +15,7 @@ use actix_web::{
 use diesel::{
     prelude::AsChangeset, BoolExpressionMethods, ExpressionMethods, QueryDsl, RunQueryDsl,
 };
-use serde::{de, Deserialize};
+use serde::Deserialize;
 
 #[derive(Deserialize)]
 struct UserQuery {
@@ -55,7 +60,10 @@ async fn get_user(req: HttpRequest, data: Data<DbPool>) -> Result<HttpResponse, 
             Some("user_not_found".to_string()),
         ));
     }
-    Ok(HttpResponse::Ok().json(results))
+    Ok(OkResponse::new(
+        "User found".to_string(),
+        Some(serde_json::to_value(results).unwrap()),
+    ))
 }
 
 #[get("/add_dummy_user")]
@@ -73,7 +81,10 @@ async fn add_dummy_user(data: Data<DbPool>) -> Result<HttpResponse, ErrorRespons
         .values(&new_user)
         .execute(connection)
     {
-        Ok(_) => Ok(HttpResponse::Ok().json(new_user)),
+        Ok(_) => Ok(OkResponse::new(
+            "User added".to_string(),
+            Some(serde_json::to_value(new_user).unwrap()),
+        )),
         Err(err) => Err(ErrorResponse::new(
             StatusCode::INTERNAL_SERVER_ERROR,
             format!("Failed to add user: {}", err),
@@ -149,7 +160,10 @@ async fn register(
         .values(&new_user)
         .execute(&mut connection)
     {
-        Ok(_) => Ok(HttpResponse::Ok().json(new_user)),
+        Ok(_) => Ok(OkResponse::new(
+            "User added".to_string(),
+            Some(serde_json::to_value(new_user).unwrap()),
+        )),
         Err(err) => Err(ErrorResponse::new(
             StatusCode::INTERNAL_SERVER_ERROR,
             format!("Failed to add user: {}", err),
@@ -190,7 +204,6 @@ async fn update_user(
             ));
         }
     };
-    println!("{:?}", form);
     let user_update = UserUpdate {
         email: match form.email {
             Some(e) => Some(e.into_inner()),
@@ -210,7 +223,7 @@ async fn update_user(
         .set(user_update)
         .execute(&mut connection)
     {
-        Ok(_) => Ok(HttpResponse::Ok().json("User updated")),
+        Ok(_) => Ok(OkResponse::new("User updated".to_string(), None)),
         Err(err) => Err(ErrorResponse::new(
             StatusCode::INTERNAL_SERVER_ERROR,
             format!("Failed to update user: {}", err),
