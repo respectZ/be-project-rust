@@ -21,6 +21,7 @@ use serde::Deserialize;
 struct UserQuery {
     email: Option<String>,
     username: Option<String>,
+    password: Option<String>,
 }
 
 #[get("")]
@@ -40,6 +41,15 @@ async fn get_user(req: HttpRequest, data: Data<DbPool>) -> Result<HttpResponse, 
     };
     let user_query = web::Query::<UserQuery>::from_query(req.query_string()).unwrap();
     let mut query = users.into_boxed();
+    if let Some(p) = &user_query.password {
+        query = query.filter(password.eq(p));
+    } else {
+        return Err(ErrorResponse::new(
+            StatusCode::BAD_REQUEST,
+            "Password is required".to_string(),
+            Some("password_required".to_string()),
+        ));
+    }
     if let Some(u) = &user_query.username {
         query = query.filter(username.eq(u));
     } else if let Some(e) = &user_query.email {
