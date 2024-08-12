@@ -82,8 +82,8 @@ async fn add_dummy_user(data: Data<DbPool>) -> Result<HttpResponse, ErrorRespons
     use crate::schema::users::dsl::*;
     let connection = &mut data.get().expect("Failed to get db connection from pool");
     let new_user = User {
-        email: "example@example.comr".to_string(),
-        username: "exampler".to_string(),
+        email: "ex@example.com".to_string(),
+        username: "theuser1d".to_string(),
         profile_picture: None,
         password: "password".to_string(),
         ..Default::default()
