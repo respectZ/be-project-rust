@@ -25,6 +25,7 @@ struct UserQuery {
 
 #[get("")]
 async fn get_user(req: HttpRequest, data: Data<DbPool>) -> Result<HttpResponse, ErrorResponse> {
+    use crate::schema::follows::dsl::{followed_user_id, follows};
     use crate::schema::users::dsl::*;
 
     let mut connection = match data.get() {
@@ -60,9 +61,19 @@ async fn get_user(req: HttpRequest, data: Data<DbPool>) -> Result<HttpResponse, 
             Some("user_not_found".to_string()),
         ));
     }
+    let uuser = &results[0];
+    // Get follower count
+    let follow_count = follows
+        .filter(followed_user_id.eq(uuser.id.unwrap()))
+        .count()
+        .get_result::<i64>(&mut connection);
+    let mut result = serde_json::to_value(uuser).unwrap();
+    let result = result.as_object_mut().unwrap();
+    result.insert("follow_count".to_string(), follow_count.unwrap().into());
+    let value = serde_json::to_value(result).unwrap();
     Ok(OkResponse::new(
         "User found".to_string(),
-        Some(serde_json::to_value(results).unwrap()),
+        Some(vec![value].into()),
     ))
 }
 
