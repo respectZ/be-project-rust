@@ -5,11 +5,11 @@ use chrono::offset::Utc;
 use chrono::DateTime;
 use diesel::{
     prelude::{Associations, Identifiable},
-    Insertable, Queryable,
+    Insertable, Queryable, Selectable,
 };
 use serde::{Deserialize, Serialize};
 
-#[derive(Insertable, Queryable, Debug, Serialize, Deserialize, Default)]
+#[derive(Insertable, Queryable, Debug, Serialize, Deserialize, Default, Selectable)]
 #[diesel(primary_key(id))]
 #[diesel(table_name = company)]
 pub struct Company {
@@ -24,7 +24,8 @@ pub struct Company {
     Insertable, Queryable, Debug, Serialize, Deserialize, Default, Identifiable, Associations,
 )]
 #[diesel(primary_key(id))]
-#[diesel(belongs_to(Position), belongs_to(Company))]
+#[diesel(belongs_to(Position))]
+#[diesel(belongs_to(Company))]
 #[diesel(table_name = company_position)]
 pub struct CompanyPosition {
     #[diesel(deserialize_as = i64)]
@@ -46,7 +47,7 @@ pub struct Follow {
     pub following_user_id: i64,
     pub followed_user_id: i64,
 }
-#[derive(Insertable, Queryable, Debug, Serialize, Deserialize, Default)]
+#[derive(Insertable, Queryable, Debug, Serialize, Deserialize, Default, Selectable)]
 #[diesel(primary_key(id))]
 #[diesel(table_name = position)]
 pub struct Position {

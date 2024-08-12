@@ -12,16 +12,29 @@ use actix_web::{
     HttpRequest, HttpResponse, Result,
 };
 use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize)]
 struct Query {
     id: Option<i64>,
 }
 
+#[derive(Serialize)]
+struct CompanyResult {
+    id: i64,
+    company_name: String,
+    position_name: String,
+}
+
 #[get("")]
 async fn get_company(req: HttpRequest, data: Data<DbPool>) -> Result<HttpResponse, ErrorResponse> {
     use crate::schema::company::dsl::*;
+    use crate::schema::company_position::dsl::*;
+    use crate::schema::position::dsl::*;
+
+    use crate::schema::company::dsl::name as company_name;
+    use crate::schema::company_position::dsl::id as company_position_id;
+    use crate::schema::position::dsl::name as position_name;
 
     let mut connection = match data.get() {
         Ok(conn) => conn,
@@ -50,6 +63,25 @@ async fn get_company(req: HttpRequest, data: Data<DbPool>) -> Result<HttpRespons
             ));
         }
     } else {
+        let result = company_position
+            .inner_join(company)
+            .inner_join(position)
+            .select((company_name, position_name, company_position_id))
+            .load::<(String, String, i64)>(&mut connection);
+        if let Ok(results) = result {
+            let results: Vec<CompanyResult> = results
+                .into_iter()
+                .map(|(a, b, c)| CompanyResult {
+                    company_name: a,
+                    position_name: b,
+                    id: c,
+                })
+                .collect();
+            return Ok(OkResponse::new(
+                "Companies found".to_string(),
+                Some(serde_json::to_value(results).unwrap()),
+            ));
+        }
         return Err(ErrorResponse::new(
             StatusCode::BAD_REQUEST,
             "Invalid query".to_string(),
