@@ -3,7 +3,10 @@
 use crate::schema::{company, company_position, follows, position, posts, users};
 use chrono::offset::Utc;
 use chrono::DateTime;
-use diesel::{Insertable, Queryable};
+use diesel::{
+    prelude::{Associations, Identifiable},
+    Insertable, Queryable,
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Insertable, Queryable, Debug, Serialize, Deserialize, Default)]
@@ -17,8 +20,11 @@ pub struct Company {
     pub name: String,
 }
 
-#[derive(Insertable, Queryable, Debug, Serialize, Deserialize, Default)]
+#[derive(
+    Insertable, Queryable, Debug, Serialize, Deserialize, Default, Identifiable, Associations,
+)]
 #[diesel(primary_key(id))]
+#[diesel(belongs_to(Position), belongs_to(Company))]
 #[diesel(table_name = company_position)]
 pub struct CompanyPosition {
     #[diesel(deserialize_as = i64)]

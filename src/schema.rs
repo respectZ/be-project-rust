@@ -59,6 +59,7 @@ diesel::table! {
 diesel::joinable!(company_position -> company (company_id));
 diesel::joinable!(company_position -> position (position_id));
 diesel::joinable!(posts -> users (user_id));
+diesel::joinable!(users -> company_position (company_position_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
     company,

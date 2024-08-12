@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS public.users
     username character varying COLLATE pg_catalog."default" NOT NULL,
     profile_picture character varying COLLATE pg_catalog."default",
     password character varying COLLATE pg_catalog."default" NOT NULL,
-    company_position_id bigint NOT NULL,
+    company_position_id bigint,
     role bigint NOT NULL,
     CONSTRAINT users_pkey PRIMARY KEY (id),
     CONSTRAINT users_email_key UNIQUE (email),
