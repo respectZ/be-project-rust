@@ -1,4 +1,4 @@
-use super::{company, position, user};
+use super::{company, position, post, user};
 use actix_web::web::{self, ServiceConfig};
 
 pub fn init(cfg: &mut ServiceConfig) {
@@ -6,6 +6,7 @@ pub fn init(cfg: &mut ServiceConfig) {
         web::scope("/v1")
             .configure(user::init)
             .configure(company::init)
-            .configure(position::init),
+            .configure(position::init)
+            .configure(post::init),
     );
 }

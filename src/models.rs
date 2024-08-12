@@ -58,7 +58,7 @@ pub struct Position {
     pub name: String,
 }
 
-#[derive(Insertable, Queryable, Debug, Serialize, Deserialize, Default)]
+#[derive(Insertable, Queryable, Debug, Serialize, Deserialize, Default, Selectable)]
 #[diesel(primary_key(id))]
 #[diesel(table_name = posts)]
 pub struct Post {
@@ -70,7 +70,7 @@ pub struct Post {
     pub user_id: i64,
 }
 
-#[derive(Insertable, Queryable, Debug, Serialize, Deserialize, Default)]
+#[derive(Insertable, Queryable, Debug, Serialize, Deserialize, Default, Selectable)]
 #[diesel(primary_key(id))]
 #[diesel(table_name = users)]
 pub struct User {
@@ -78,11 +78,12 @@ pub struct User {
     pub id: Option<i64>,
     #[diesel(deserialize_as = DateTime<Utc>)]
     pub created_at: Option<DateTime<Utc>>,
+    pub name: String,
     pub email: String,
     pub username: String,
     pub profile_picture: Option<String>,
     pub password: String,
     pub company_position_id: Option<i64>,
     #[diesel(deserialize_as = i64)]
-    pub role: Option<i64>,
+    pub role: i64,
 }

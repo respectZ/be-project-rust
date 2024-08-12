@@ -47,6 +47,7 @@ diesel::table! {
     users (id) {
         id -> Int8,
         created_at -> Timestamptz,
+        name -> Varchar,
         email -> Varchar,
         username -> Varchar,
         profile_picture -> Nullable<Varchar>,
