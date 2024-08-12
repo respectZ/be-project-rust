@@ -1,12 +1,14 @@
 use crate::{
     db::DbPool,
-    models::Post,
+    models::{Post, User},
     response::{ErrorResponse, OkResponse},
     schema::users::name,
 };
+use actix_multipart::form::{text::Text, MultipartForm};
 use actix_web::{
     get,
     http::StatusCode,
+    post,
     web::{self, Data, ServiceConfig},
     HttpRequest, HttpResponse,
 };
@@ -158,6 +160,80 @@ async fn get_posts(req: HttpRequest, data: Data<DbPool>) -> Result<HttpResponse,
     }
 }
 
+#[derive(Debug, MultipartForm)]
+struct PostForm {
+    user_id: Option<Text<i64>>,
+    body: Option<Text<String>>,
+}
+
+#[post("")]
+async fn add_post(
+    MultipartForm(form): MultipartForm<PostForm>,
+    data: Data<DbPool>,
+) -> Result<HttpResponse, ErrorResponse> {
+    use crate::schema::posts::dsl::posts;
+    use crate::schema::users::dsl::users;
+
+    let mut connection = match data.get() {
+        Ok(conn) => conn,
+        Err(e) => {
+            return Err(ErrorResponse::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to get db connection from pool: {}", e),
+                Some("db_connection_failed".to_string()),
+            ));
+        }
+    };
+    let user_id = match form.user_id {
+        Some(u) => u.into_inner(),
+        None => {
+            return Err(ErrorResponse::new(
+                StatusCode::BAD_REQUEST,
+                "User id is required".to_string(),
+                Some("user_id_required".to_string()),
+            ));
+        }
+    };
+    let body = match form.body {
+        Some(b) => b.into_inner(),
+        None => {
+            return Err(ErrorResponse::new(
+                StatusCode::BAD_REQUEST,
+                "Post body is required".to_string(),
+                Some("post_body_required".to_string()),
+            ));
+        }
+    };
+    let user = users.find(user_id).first::<User>(&mut connection);
+    if let Err(_) = user {
+        return Err(ErrorResponse::new(
+            StatusCode::NOT_FOUND,
+            "User not found".to_string(),
+            Some("user_not_found".to_string()),
+        ));
+    }
+    let user: User = user.unwrap();
+    match diesel::insert_into(posts)
+        .values(Post {
+            user_id: user.id.unwrap(),
+            body,
+            ..Default::default()
+        })
+        .execute(&mut connection)
+    {
+        Ok(_) => Ok(OkResponse::new("Post added".to_string(), None)),
+        Err(e) => {
+            return Err(ErrorResponse::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to add post: {}", e),
+                Some("add_post_failed".to_string()),
+            ));
+        }
+    }
+}
+
+// TODO: Edit post
+
 pub fn init(config: &mut ServiceConfig) {
-    config.service(web::scope("/post").service(get_posts));
+    config.service(web::scope("/post").service(get_posts).service(add_post));
 }
