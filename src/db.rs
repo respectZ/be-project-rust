@@ -1,11 +1,12 @@
 use actix_web::Result;
 use diesel::pg::PgConnection;
-use diesel::r2d2;
+use diesel::r2d2::{self, PooledConnection};
 use diesel::r2d2::{ConnectionManager, Pool};
 use dotenv::dotenv;
 use std::env;
 
 pub type DbPool = Pool<ConnectionManager<PgConnection>>;
+pub type DbPooled = PooledConnection<ConnectionManager<PgConnection>>;
 
 pub fn establish_connection() -> Result<DbPool> {
     dotenv().ok();

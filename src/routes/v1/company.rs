@@ -1,5 +1,5 @@
 use crate::{
-    db::DbPool,
+    db::{DbPool, DbPooled},
     models::Company,
     response::{ErrorResponse, OkResponse},
 };
@@ -19,22 +19,16 @@ struct Query {
     id: Option<i64>,
 }
 
-#[derive(Serialize)]
-struct CompanyResult {
+#[derive(Serialize, Clone)]
+pub struct CompanyResult {
     id: i64,
     company_name: String,
     position_name: String,
 }
 
 #[get("")]
-async fn get_company(req: HttpRequest, data: Data<DbPool>) -> Result<HttpResponse, ErrorResponse> {
+async fn req_company(req: HttpRequest, data: Data<DbPool>) -> Result<HttpResponse, ErrorResponse> {
     use crate::schema::company::dsl::*;
-    use crate::schema::company_position::dsl::*;
-    use crate::schema::position::dsl::*;
-
-    use crate::schema::company::dsl::name as company_name;
-    use crate::schema::company_position::dsl::id as company_position_id;
-    use crate::schema::position::dsl::name as position_name;
 
     let mut connection = match data.get() {
         Ok(conn) => conn,
@@ -63,23 +57,11 @@ async fn get_company(req: HttpRequest, data: Data<DbPool>) -> Result<HttpRespons
             ));
         }
     } else {
-        let result = company_position
-            .inner_join(company)
-            .inner_join(position)
-            .select((company_name, position_name, company_position_id))
-            .load::<(String, String, i64)>(&mut connection);
-        if let Ok(results) = result {
-            let results: Vec<CompanyResult> = results
-                .into_iter()
-                .map(|(a, b, c)| CompanyResult {
-                    company_name: a,
-                    position_name: b,
-                    id: c,
-                })
-                .collect();
+        let companies = get_company(&mut connection, None);
+        if let Ok(companies) = companies {
             return Ok(OkResponse::new(
                 "Companies found".to_string(),
-                Some(serde_json::to_value(results).unwrap()),
+                Some(serde_json::to_value(companies).unwrap()),
             ));
         }
         return Err(ErrorResponse::new(
@@ -194,10 +176,47 @@ async fn update(
     }
 }
 
+pub fn get_company(
+    conn: &mut DbPooled,
+    company_position_id: Option<i64>,
+) -> Result<Vec<CompanyResult>> {
+    use crate::schema::company::dsl::*;
+    use crate::schema::company_position::dsl::*;
+    use crate::schema::position::dsl::*;
+
+    use crate::schema::company::dsl::name as company_name;
+    use crate::schema::company_position::dsl::id as q_company_position_id;
+    use crate::schema::position::dsl::name as position_name;
+
+    let mut query = company_position.into_boxed();
+    if let Some(i) = company_position_id {
+        query = query.filter(q_company_position_id.eq(i));
+    }
+
+    let result = query
+        .inner_join(company)
+        .inner_join(position)
+        .select((company_name, position_name, q_company_position_id))
+        .load::<(String, String, i64)>(conn);
+    if let Ok(results) = result {
+        let results: Vec<CompanyResult> = results
+            .into_iter()
+            .map(|(a, b, c)| CompanyResult {
+                company_name: a,
+                position_name: b,
+                id: c,
+            })
+            .collect();
+        return Ok(results);
+    }
+
+    Ok(vec![])
+}
+
 pub fn init(config: &mut ServiceConfig) {
     config.service(
         web::scope("/company")
-            .service(get_company)
+            .service(req_company)
             .service(add_company)
             .service(update),
     );

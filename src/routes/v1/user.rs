@@ -2,6 +2,7 @@ use crate::{
     db::DbPool,
     models::User,
     response::{ErrorResponse, OkResponse},
+    routes::v1::company::get_company,
     schema::users,
 };
 use actix_multipart::form::{text::Text, MultipartForm};
@@ -41,6 +42,7 @@ async fn get_user(req: HttpRequest, data: Data<DbPool>) -> Result<HttpResponse, 
     };
     let user_query = web::Query::<UserQuery>::from_query(req.query_string()).unwrap();
     let mut query = users.into_boxed();
+    // Check for email/username and password
     if let Some(p) = &user_query.password {
         query = query.filter(password.eq(p));
     } else {
@@ -61,6 +63,7 @@ async fn get_user(req: HttpRequest, data: Data<DbPool>) -> Result<HttpResponse, 
             Some("invalid_query".to_string()),
         ));
     }
+
     let results: Vec<User> = query
         .load::<User>(&mut connection)
         .expect("Error loading users");
@@ -77,9 +80,25 @@ async fn get_user(req: HttpRequest, data: Data<DbPool>) -> Result<HttpResponse, 
         .filter(followed_user_id.eq(uuser.id.unwrap()))
         .count()
         .get_result::<i64>(&mut connection);
+    // Get company data
+    let company_data = match uuser.company_position_id {
+        Some(c) => {
+            let company = get_company(&mut connection, Some(c));
+            match company {
+                Ok(c) => Some(serde_json::to_value(c[0].clone()).unwrap()),
+                Err(_) => None,
+            }
+        }
+        None => None,
+    };
     let mut result = serde_json::to_value(uuser).unwrap();
     let result = result.as_object_mut().unwrap();
     result.insert("follow_count".to_string(), follow_count.unwrap().into());
+    if let Some(c) = company_data {
+        result.insert("company".to_string(), c);
+    } else {
+        result.insert("company".to_string(), serde_json::Value::Null);
+    }
     let value = serde_json::to_value(result).unwrap();
     Ok(OkResponse::new(
         "User found".to_string(),
@@ -87,35 +106,9 @@ async fn get_user(req: HttpRequest, data: Data<DbPool>) -> Result<HttpResponse, 
     ))
 }
 
-#[get("/add_dummy_user")]
-async fn add_dummy_user(data: Data<DbPool>) -> Result<HttpResponse, ErrorResponse> {
-    use crate::schema::users::dsl::*;
-    let connection = &mut data.get().expect("Failed to get db connection from pool");
-    let new_user = User {
-        email: "ex@example.com".to_string(),
-        username: "theuser1d".to_string(),
-        profile_picture: None,
-        password: "password".to_string(),
-        ..Default::default()
-    };
-    match diesel::insert_into(users)
-        .values(&new_user)
-        .execute(connection)
-    {
-        Ok(_) => Ok(OkResponse::new(
-            "User added".to_string(),
-            Some(serde_json::to_value(new_user).unwrap()),
-        )),
-        Err(err) => Err(ErrorResponse::new(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Failed to add user: {}", err),
-            Some("add_user_failed".to_string()),
-        )),
-    }
-}
-
 #[derive(Deserialize, Debug)]
 struct RegisterUser {
+    name: String,
     email: String,
     username: String,
     password: String,
@@ -175,6 +168,7 @@ async fn register(
         email: params.email.clone(),
         username: params.username.clone(),
         password: params.password.clone(),
+        name: params.name.clone(),
         ..Default::default()
     };
     match diesel::insert_into(users)
@@ -257,7 +251,6 @@ pub fn init(config: &mut ServiceConfig) {
     config.service(
         web::scope("/user")
             .service(get_user)
-            .service(add_dummy_user)
             .service(register)
             .service(update_user),
     );
